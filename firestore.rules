@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isCompanyOwner(companyId) {
+      return isSignedIn() && request.auth.uid == companyId;
+    }
+    function isUniversityOwner(universityId) {
+      return isSignedIn() && request.auth.uid == universityId;
+    }
+
+    match /students/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /companies/{uid} {
+      allow read: if (resource.data != null && resource.data.status == "approved")
+        || isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.status == "pending"
+        && request.resource.data.uid == uid;
+      allow update: if isAdmin()
+        || (isOwner(uid) && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin();
+    }
+
+    match /universities/{uid} {
+      allow read: if (resource.data != null && resource.data.status == "approved")
+        || isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.status == "pending"
+        && request.resource.data.uid == uid;
+      allow update: if isAdmin()
+        || (isOwner(uid) && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin();
+    }
+
+    match /companyStats/{companyId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || isCompanyOwner(companyId);
+      allow update: if isAdmin() || (isCompanyOwner(companyId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['totalViews','totalSaves','totalApplied','weekly']));
+      allow delete: if isAdmin();
+    }
+
+    match /universityStats/{universityId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || isUniversityOwner(universityId);
+      allow update: if isAdmin() || (isUniversityOwner(universityId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['totalViews','totalSaves','totalApplied','weekly']));
+      allow delete: if isAdmin();
+    }
+
+    match /savedCompanies/{docId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data != null && resource.data.studentId == request.auth.uid);
+      allow create, delete: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+    }
+
+    match /applications/{docId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data != null && resource.data.studentId == request.auth.uid);
+      allow create, delete: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+    }
+
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, update: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /universitiesMasterList/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /activityLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
