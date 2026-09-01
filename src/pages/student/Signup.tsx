@@ -6,24 +6,21 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { Spinner } from "@/components/ui/Spinner";
 import { useApp } from "@/context/AppContext";
-import { useAuth } from "@/context/AuthContext";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  reload,
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { Mail, ArrowLeft, CheckCircle2, Chrome } from "lucide-react";
+import { Mail, ArrowLeft, Chrome } from "lucide-react";
 
-type Stage = "form" | "loading" | "verify";
+type Stage = "form" | "loading";
 
 export function StudentSignup() {
   const navigate = useNavigate();
   const { showToast } = useApp();
-  const { firebaseUser } = useAuth();
   const [stage, setStage] = useState<Stage>("form");
   const [form, setForm] = useState({
     fullName: "",
@@ -101,7 +98,7 @@ export function StudentSignup() {
       });
 
       showToast("Verification email sent", "success");
-      setStage("verify");
+      navigate("/student/verify-email", { replace: true });
     } catch (error) {
       showToast(getErrorMessage(error), "error");
       setStage("form");
@@ -120,98 +117,40 @@ export function StudentSignup() {
 
       const studentSnap = await getDoc(doc(db, "students", user.uid));
 
-if (studentSnap.exists()) {
-  const data = studentSnap.data() as Record<string, unknown>;
+      if (!studentSnap.exists()) {
+        await setDoc(doc(db, "students", user.uid), {
+          uid: user.uid,
+          email: user.email,
+          fullName: user.displayName ?? "",
+          university: "",
+          course: "",
+          yearOfStudy: "",
+          bio: "",
+          skills: [],
+          languages: [],
+          phone: "",
+          portfolioUrl: "",
+          expectedGraduationYear: null,
+          photoUrl: user.photoURL ?? null,
+          featuredPhotoUrls: [],
+          emailVerified: user.emailVerified,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
 
-  if (data.course && data.university) {
-    showToast("Welcome back!", "success");
-    navigate("/explore");
-    return;
-  }
-
-  // Profile exists but onboarding is incomplete
-  showToast("Let's finish setting up your profile", "success");
-  navigate("/student/onboarding");
-  return;
-}
-
-// New Google account — create a fresh student profile
-await setDoc(doc(db, "students", user.uid), {
-  uid: user.uid,
-  email: user.email,
-  fullName: user.displayName ?? "",
-  university: "",
-  course: "",
-  yearOfStudy: "",
-  bio: "",
-  skills: [],
-  languages: [],
-  phone: "",
-  portfolioUrl: "",
-  expectedGraduationYear: null,
-  photoUrl: user.photoURL ?? null,
-  featuredPhotoUrls: [],
-  emailVerified: user.emailVerified,
-  createdAt: serverTimestamp(),
-  updatedAt: serverTimestamp(),
-});
-
-showToast("Google sign-in successful", "success");
-navigate("/student/onboarding");
+      if (user.emailVerified) {
+        showToast("Google sign-in successful", "success");
+        navigate("/student/onboarding");
+      } else {
+        showToast("Please verify your Google email and try again.", "error");
+        setStage("form");
+      }
     } catch (error) {
       console.error("Google sign-in error:", error);
       showToast("Google sign-in failed. Please try again.", "error");
       setStage("form");
     }
-  }
-
-  if (stage === "verify") {
-    return (
-      <PublicLayout>
-        <div className="max-w-md mx-auto px-4 py-16">
-          <Card className="p-8 text-center">
-            <div className="w-14 h-14 rounded-full bg-teal-50 flex items-center justify-center mx-auto mb-5">
-              <Mail className="w-7 h-7 text-teal-600" />
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">
-              Check your email
-            </h1>
-            <p className="text-sm text-gray-600 mb-6">
-              We sent a verification link to{" "}
-              <span className="font-medium text-gray-900">{form.email}</span>.
-              Click it to confirm your account, then continue.
-            </p>
-            <Button
-              className="w-full"
-              onClick={async () => {
-                try {
-                  if (firebaseUser) {
-                    await reload(firebaseUser);
-                    if (firebaseUser.emailVerified) {
-                      navigate("/student/onboarding");
-                    } else {
-                      showToast("Please verify your email first.", "error");
-                    }
-                  } else {
-                    showToast("No user session found. Please sign up again.", "error");
-                  }
-                } catch {
-                  showToast("Could not verify email status. Please try again.", "error");
-                }
-              }}
-            >
-              <CheckCircle2 className="w-4 h-4" /> I've verified — continue
-            </Button>
-            <button
-              onClick={() => setStage("form")}
-              className="mt-4 text-sm text-gray-500 hover:text-gray-800"
-            >
-              Use a different email
-            </button>
-          </Card>
-        </div>
-      </PublicLayout>
-    );
   }
 
   return (
@@ -327,12 +266,12 @@ navigate("/student/onboarding");
             Continue with Google
           </Button>
 
-          <div className="mt-5 text-center text-sm text-gray-500">
+          <p className="mt-5 text-center text-sm text-gray-500">
             Already have an account?{" "}
             <Link to="/student/login" className="text-teal-600 font-medium hover:underline">
               Log in
             </Link>
-          </div>
+          </p>
         </Card>
       </div>
     </PublicLayout>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -40,21 +40,6 @@ const ALL_YEARS: YearOfStudy[] = [
   "Postgraduate",
 ];
 
-const PROGRAMME_OPTIONS = [
-  "Land Management",
-  "Land Surveying",
-  "Valuation",
-  "Architecture",
-  "Civil Engineering",
-  "Computer Science",
-  "Information Technology",
-  "Accounting",
-  "Finance",
-  "Business Administration",
-  "Environmental Science",
-  "Geography",
-];
-
 function getFirebaseErrorMessage(error: unknown): string {
   const code = (error as { code?: string })?.code;
   if (code === "auth/email-already-in-use") return "This email is already registered.";
@@ -70,28 +55,30 @@ interface CompanyForm {
   password: string;
   fullName: string;
   authorized: boolean;
-  tagline: string;
   categories: Category[];
-  description: string;
   address: string;
-  poBox: string;
+  contactEmail: string;
+  acceptedYears: YearOfStudy[];
+  applicationMethod: "office_visit" | "email_whatsapp";
+
+  // Enrichment fields (optional, filled later in profile completion)
+  tagline: string;
+  description: string;
   phone: string;
   whatsapp: string;
-  contactEmail: string;
-  website: string;
+  poBox: string;
   city: string;
   region: string;
-  acceptedYears: YearOfStudy[];
-  preferredProgrammes: string[];
-  additionalRequirements: string;
-  applicationMethod: "office_visit" | "email_whatsapp";
-  availableSlots: number;
-  logoUrl: string;
-  coverUrl: string;
+  website: string;
   linkedin: string;
   instagram: string;
   twitter: string;
   facebook: string;
+  preferredProgrammes: string[];
+  additionalRequirements: string;
+  availableSlots: number;
+  logoUrl: string;
+  coverUrl: string;
 }
 
 interface UniversityForm {
@@ -117,28 +104,29 @@ const initialCompanyForm: CompanyForm = {
   password: "",
   fullName: "",
   authorized: false,
-  tagline: "",
   categories: [],
-  description: "",
   address: "",
-  poBox: "",
+  contactEmail: "",
+  acceptedYears: [],
+  applicationMethod: "office_visit",
+
+  tagline: "",
+  description: "",
   phone: "",
   whatsapp: "",
-  contactEmail: "",
-  website: "",
+  poBox: "",
   city: "",
   region: "",
-  acceptedYears: [],
-  preferredProgrammes: [],
-  additionalRequirements: "",
-  applicationMethod: "office_visit",
-  availableSlots: 0,
-  logoUrl: "",
-  coverUrl: "",
+  website: "",
   linkedin: "",
   instagram: "",
   twitter: "",
   facebook: "",
+  preferredProgrammes: [],
+  additionalRequirements: "",
+  availableSlots: 1,
+  logoUrl: "",
+  coverUrl: "",
 };
 
 const initialUniversityForm: UniversityForm = {
@@ -187,28 +175,29 @@ export function InstitutionRegister() {
         password: "",
         fullName: currentCompany.name,
         authorized: true,
-        tagline: currentCompany.tagline,
         categories: [currentCompany.category],
-        description: currentCompany.description,
         address: currentCompany.location.address,
-        poBox: currentCompany.contactInfo.poBox,
+        contactEmail: currentCompany.contactInfo.email,
+        acceptedYears: currentCompany.acceptedYears,
+        applicationMethod: "office_visit",
+
+        tagline: currentCompany.tagline,
+        description: currentCompany.description,
         phone: currentCompany.contactInfo.phone,
         whatsapp: currentCompany.contactInfo.whatsapp,
-        contactEmail: currentCompany.contactInfo.email,
-        website: currentCompany.contactInfo.website ?? "",
+        poBox: currentCompany.contactInfo.poBox,
         city: currentCompany.location.city,
         region: currentCompany.location.region,
-        acceptedYears: currentCompany.acceptedYears,
-        preferredProgrammes: currentCompany.preferredProgrammes,
-        additionalRequirements: currentCompany.additionalRequirements,
-        applicationMethod: "office_visit",
-        availableSlots: 0,
-        logoUrl: currentCompany.logoUrl,
-        coverUrl: currentCompany.coverUrl,
+        website: currentCompany.contactInfo.website ?? "",
         linkedin: currentCompany.socialLinks?.linkedin ?? "",
         instagram: currentCompany.socialLinks?.instagram ?? "",
         twitter: currentCompany.socialLinks?.twitter ?? "",
         facebook: currentCompany.socialLinks?.facebook ?? "",
+        preferredProgrammes: currentCompany.preferredProgrammes,
+        additionalRequirements: currentCompany.additionalRequirements,
+        availableSlots: 1,
+        logoUrl: currentCompany.logoUrl,
+        coverUrl: currentCompany.coverUrl,
       });
     }
   }, [isCompanyEditing, currentCompany]);
@@ -263,34 +252,6 @@ export function InstitutionRegister() {
     return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 9)} ${digits.slice(9, 12)}`;
   }
 
-  function scrollToFirstError(firstError: string) {
-    const fieldMap: Record<string, string> = {
-      "Company Email": "companyEmail",
-      Password: "companyPassword",
-      "Company Full Name": "companyFullName",
-      "Authorization confirmation": "authorized",
-      Tagline: "tagline",
-      Category: "categories",
-      "Physical Address": "address",
-      "Office Phone": "phone",
-      "Contact Email": "contactEmail",
-      "Placement Preferences": "acceptedYears",
-      "Positions available": "availableSlots",
-      "At least one social media link": "socials",
-    };
-
-    const target = fieldMap[firstError];
-
-    if (target === "socials") {
-      const socialSection = document.getElementById("social-links");
-      socialSection?.scrollIntoView({ behavior: "smooth", block: "center" });
-    } else if (target) {
-      const el = document.getElementsByName(target)?.[0];
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      (el as HTMLElement)?.focus?.();
-    }
-  }
-
   function validateCompanyForm(): string[] {
     const missing: string[] = [];
     if (!companyForm.email.trim()) missing.push("Company Email");
@@ -301,27 +262,10 @@ export function InstitutionRegister() {
     }
     if (!companyForm.fullName.trim()) missing.push("Company Full Name");
     if (!companyForm.authorized) missing.push("Authorization confirmation");
-    if (!companyForm.tagline.trim()) missing.push("Tagline");
     if (companyForm.categories.length === 0) missing.push("Category");
     if (!companyForm.address.trim()) missing.push("Physical Address");
-    if (!companyForm.phone.trim()) missing.push("Office Phone");
     if (!companyForm.contactEmail.trim()) missing.push("Contact Email");
-    if (companyForm.acceptedYears.length === 0) missing.push("Placement Preferences");
-    if (!companyForm.availableSlots || companyForm.availableSlots < 1) {
-      missing.push("Positions available");
-    }
-
-    const socialsFilled = [
-      companyForm.linkedin,
-      companyForm.instagram,
-      companyForm.twitter,
-      companyForm.facebook,
-    ].some((v) => v.trim().length > 0);
-
-    if (!socialsFilled) {
-      missing.push("At least one social media link");
-    }
-
+    if (companyForm.acceptedYears.length === 0) missing.push("Accepted Years");
     return missing;
   }
 
@@ -348,7 +292,6 @@ export function InstitutionRegister() {
     const missing = validateCompanyForm();
     if (missing.length > 0) {
       showToast(`Missing: ${missing.join(", ")}`, "error");
-      scrollToFirstError(missing[0]);
       return;
     }
 
@@ -404,13 +347,13 @@ export function InstitutionRegister() {
         companyEmail: companyForm.email,
         contactEmail: companyForm.contactEmail || null,
         companyName: companyForm.fullName,
-        tagline: companyForm.tagline,
+        tagline: companyForm.tagline || null,
         categories: companyForm.categories,
         description: companyForm.description || null,
         address: companyForm.address,
-        poBox: companyForm.poBox,
-        phone: companyForm.phone,
-        whatsapp: companyForm.whatsapp,
+        poBox: companyForm.poBox || null,
+        phone: companyForm.phone || null,
+        whatsapp: companyForm.whatsapp || null,
         website: companyForm.website || null,
         socials: {
           linkedin: companyForm.linkedin || null,
@@ -423,7 +366,7 @@ export function InstitutionRegister() {
         preferredProgrammes: companyForm.preferredProgrammes,
         extraRequirements: companyForm.additionalRequirements || null,
         applicationMethod: companyForm.applicationMethod,
-        availableSlots: companyForm.availableSlots,
+        availableSlots: companyForm.availableSlots || 1,
         logoUrl: companyForm.logoUrl || null,
         coverUrl: companyForm.coverUrl || null,
         status: "pending",
@@ -438,7 +381,7 @@ export function InstitutionRegister() {
       });
 
       showToast("Verification email sent", "success");
-      setStage("verify");
+      navigate("/verify-email", { replace: true });
     } catch (error) {
       showToast(getFirebaseErrorMessage(error), "error");
       setStage("form");
@@ -507,7 +450,7 @@ export function InstitutionRegister() {
       });
 
       showToast("Verification email sent", "success");
-      setStage("verify");
+      navigate("/verify-email", { replace: true });
     } catch (error) {
       showToast(getFirebaseErrorMessage(error), "error");
       setStage("form");
@@ -709,17 +652,11 @@ export function InstitutionRegister() {
                 <span className="text-sm text-gray-600">
                   I confirm that I am an authorized representative and agree to
                   the{" "}
-                  <a
-                    href="/terms"
-                    className="text-teal-600 hover:underline"
-                  >
+                  <a href="/terms" className="text-teal-600 hover:underline">
                     Terms
                   </a>{" "}
                   &{" "}
-                  <a
-                    href="/privacy"
-                    className="text-teal-600 hover:underline"
-                  >
+                  <a href="/privacy" className="text-teal-600 hover:underline">
                     Privacy Policy
                   </a>
                   .
@@ -727,26 +664,6 @@ export function InstitutionRegister() {
               </label>
 
               <hr className="border-gray-100" />
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Tagline
-                </label>
-                <Input
-                  name="tagline"
-                  placeholder="A short, catchy one-liner about your company"
-                  value={companyForm.tagline}
-                  maxLength={80}
-                  onChange={(e) =>
-                    setCompanyForm({ ...companyForm, tagline: e.target.value })
-                  }
-                />
-                <div className="flex justify-end mt-1">
-                  <span className="text-xs text-gray-400">
-                    {companyForm.tagline.length}/80
-                  </span>
-                </div>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -781,19 +698,6 @@ export function InstitutionRegister() {
                 </div>
               </div>
 
-              <Textarea
-                label="Description (optional)"
-                name="description"
-                placeholder="Describe what your company does and what students can expect"
-                rows={4}
-                value={companyForm.description}
-                onChange={(e) =>
-                  setCompanyForm({ ...companyForm, description: e.target.value })
-                }
-              />
-
-              <hr className="border-gray-100" />
-
               <Input
                 label="Physical Address"
                 name="address"
@@ -803,58 +707,7 @@ export function InstitutionRegister() {
                   setCompanyForm({ ...companyForm, address: e.target.value })
                 }
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="P.O. Box"
-                  name="poBox"
-                  placeholder="e.g. 12345 DSM"
-                  value={companyForm.poBox}
-                  onChange={(e) =>
-                    setCompanyForm({ ...companyForm, poBox: e.target.value })
-                  }
-                />
-                <Input
-                  label="City"
-                  name="city"
-                  placeholder="e.g. Dar es Salaam"
-                  value={companyForm.city}
-                  onChange={(e) =>
-                    setCompanyForm({ ...companyForm, city: e.target.value })
-                  }
-                />
-              </div>
-              <Input
-                label="Region"
-                name="region"
-                placeholder="e.g. Dar es Salaam"
-                value={companyForm.region}
-                onChange={(e) =>
-                  setCompanyForm({ ...companyForm, region: e.target.value })
-                }
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Office Phone"
-                  name="phone"
-                  placeholder="+255 22 123 4567"
-                  value={companyForm.phone}
-                  onChange={(e) =>
-                    setCompanyForm({ ...companyForm, phone: e.target.value })
-                  }
-                />
-                <Input
-                  label="WhatsApp Number"
-                  name="whatsapp"
-                  placeholder="+255 712 345 678"
-                  value={companyForm.whatsapp}
-                  onChange={(e) =>
-                    setCompanyForm({
-                      ...companyForm,
-                      whatsapp: formatWhatsApp(e.target.value),
-                    })
-                  }
-                />
-              </div>
+
               <Input
                 label="Contact Email"
                 name="contactEmail"
@@ -868,57 +721,6 @@ export function InstitutionRegister() {
                   })
                 }
               />
-              <Input
-                label="Website URL"
-                name="website"
-                placeholder="https://company.co.tz"
-                value={companyForm.website}
-                onChange={(e) =>
-                  setCompanyForm({ ...companyForm, website: e.target.value })
-                }
-              />
-
-              <div id="social-links">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Social media links (at least one required)
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    name="linkedin"
-                    placeholder="https://linkedin.com/company/..."
-                    value={companyForm.linkedin}
-                    onChange={(e) =>
-                      setCompanyForm({ ...companyForm, linkedin: e.target.value })
-                    }
-                  />
-                  <Input
-                    name="instagram"
-                    placeholder="https://instagram.com/..."
-                    value={companyForm.instagram}
-                    onChange={(e) =>
-                      setCompanyForm({ ...companyForm, instagram: e.target.value })
-                    }
-                  />
-                  <Input
-                    name="twitter"
-                    placeholder="https://twitter.com/... or https://x.com/..."
-                    value={companyForm.twitter}
-                    onChange={(e) =>
-                      setCompanyForm({ ...companyForm, twitter: e.target.value })
-                    }
-                  />
-                  <Input
-                    name="facebook"
-                    placeholder="https://facebook.com/..."
-                    value={companyForm.facebook}
-                    onChange={(e) =>
-                      setCompanyForm({ ...companyForm, facebook: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <hr className="border-gray-100" />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -958,53 +760,6 @@ export function InstitutionRegister() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Preferred programmes
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {PROGRAMME_OPTIONS.map((prog) => {
-                    const selected = companyForm.preferredProgrammes.includes(prog);
-                    return (
-                      <button
-                        key={prog}
-                        type="button"
-                        onClick={() =>
-                          setCompanyForm({
-                            ...companyForm,
-                            preferredProgrammes: toggleArrayItem(
-                              companyForm.preferredProgrammes,
-                              prog,
-                            ),
-                          })
-                        }
-                        className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
-                          selected
-                            ? "bg-teal-600 text-white shadow-sm"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {prog}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <Textarea
-                label="Additional requirements (optional)"
-                name="additionalRequirements"
-                placeholder="e.g. Must have own laptop, must complete safety induction"
-                rows={3}
-                value={companyForm.additionalRequirements}
-                onChange={(e) =>
-                  setCompanyForm({
-                    ...companyForm,
-                    additionalRequirements: e.target.value,
-                  })
-                }
-              />
-
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   How should students apply?
                 </label>
@@ -1029,119 +784,17 @@ export function InstitutionRegister() {
                 </select>
               </div>
 
-              <Input
-                label="Positions available"
-                name="availableSlots"
-                type="number"
-                min={0}
-                placeholder="e.g. 5"
-                value={companyForm.availableSlots}
-                onChange={(e) =>
-                  setCompanyForm({
-                    ...companyForm,
-                    availableSlots: Number(e.target.value),
-                  })
-                }
-              />
-
-              <hr className="border-gray-100" />
-
-              {/* Logo upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Company logo
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden">
-                    {companyForm.logoUrl ? (
-                      <img
-                        src={companyForm.logoUrl}
-                        alt="Logo preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <ImageIcon className="w-8 h-8 text-gray-300" />
-                    )}
-                  </div>
-                  <label className="cursor-pointer">
-                    <span className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all">
-                      <Upload className="w-4 h-4" /> Upload logo
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () =>
-                            setCompanyForm({
-                              ...companyForm,
-                              logoUrl: reader.result as string,
-                            });
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {/* Cover upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cover image (optional)
-                </label>
-                <div className="relative h-40 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden">
-                  {companyForm.coverUrl ? (
-                    <img
-                      src={companyForm.coverUrl}
-                      alt="Cover preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : companyForm.logoUrl ? (
-                    <img
-                      src={companyForm.logoUrl}
-                      alt="Logo as cover"
-                      className="w-full h-full object-cover opacity-80"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                      <ImageIcon className="w-10 h-10 text-gray-300" />
-                      <span className="text-sm text-gray-400">
-                        Upload a cover image
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <label className="cursor-pointer mt-2 inline-block">
-                  <span className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all">
-                    <Upload className="w-4 h-4" /> Upload cover
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () =>
-                          setCompanyForm({
-                            ...companyForm,
-                            coverUrl: reader.result as string,
-                          });
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-
               <Button className="w-full" onClick={handleCompanySubmit}>
                 <Check className="w-4 h-4" /> {isCompanyEditing ? "Save Changes" : "Submit for Review"}
               </Button>
+
+              {/* Login link for existing companies */}
+              <p className="text-center text-sm text-gray-500">
+                Already have an account?{" "}
+                <Link to="/company/login" className="text-teal-600 font-medium hover:underline">
+                  Log in
+                </Link>
+              </p>
             </Card>
           </div>
         ) : (
@@ -1399,6 +1052,14 @@ export function InstitutionRegister() {
               <Button className="w-full" onClick={handleUniversitySubmit}>
                 <Check className="w-4 h-4" /> {isEditing ? "Save Changes" : "Submit for Review"}
               </Button>
+
+              {/* Login link for existing universities */}
+              <p className="text-center text-sm text-gray-500">
+                Already have an account?{" "}
+                <Link to="/company/login" className="text-teal-600 font-medium hover:underline">
+                  Log in
+                </Link>
+              </p>
             </Card>
           </div>
         )}

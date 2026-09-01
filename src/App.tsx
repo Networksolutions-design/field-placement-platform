@@ -14,6 +14,7 @@ import { Landing } from "@/pages/Landing";
 import { StudentLogin } from "@/pages/student/Login";
 import { StudentSignup } from "@/pages/student/Signup";
 import { StudentOnboarding } from "@/pages/student/Onboarding";
+import { VerifyEmailPage } from "@/pages/VerifyEmailPage";
 import { CompanyLogin } from "@/pages/company/Login";
 import { CompanyDetail } from "@/pages/company/Detail";
 import { CompanyDashboard } from "@/pages/company/Dashboard";
@@ -38,38 +39,58 @@ function FullScreenLoader() {
 }
 
 function SessionGuard({ children }: { children: ReactNode }) {
-  const { firebaseUser, role, loading } = useAuth();
+  const { firebaseUser, role, loading, emailVerified } = useAuth();
   const location = useLocation();
   const path = location.pathname;
 
-  // Only show loader when there is no user yet.
-  // After signup, user exists but role may still be null; keep page mounted.
   if (loading && !firebaseUser) return <FullScreenLoader />;
+  if (!firebaseUser) return <>{children}</>;
 
-  if (!firebaseUser) {
+  // Unverified users: only allow certain paths
+  if (!emailVerified) {
+    const unverifiedAllowedPaths = [
+      "/",
+      "/student/signup",
+      "/verify-email",
+      "/institution/register",
+      "/student/login",
+      "/company/login",
+      "/admin/login",
+      "/terms",
+      "/privacy",
+    ];
+    if (!unverifiedAllowedPaths.includes(path)) {
+      return <Navigate to="/verify-email" replace />;
+    }
     return <>{children}</>;
   }
 
+  // Verified user redirects
   if (role === "student") {
-    if (path === "/" || path.startsWith("/student/login")) {
+    if (
+      path === "/" ||
+      path.startsWith("/student/login") ||
+      path.startsWith("/student/signup") ||
+      path === "/verify-email"
+    ) {
       return <Navigate to="/explore" replace />;
     }
   }
 
   if (role === "company") {
-    if (path === "/" || path.startsWith("/company/login")) {
+    if (path === "/" || path.startsWith("/company/login") || path === "/verify-email") {
       return <Navigate to="/company/dashboard" replace />;
     }
   }
 
   if (role === "university") {
-    if (path === "/") {
+    if (path === "/" || path === "/verify-email") {
       return <Navigate to="/university/dashboard" replace />;
     }
   }
 
   if (role === "admin") {
-    if (path === "/" || path === "/admin/login") {
+    if (path === "/" || path === "/admin/login" || path === "/verify-email") {
       return <Navigate to="/admin/dashboard" replace />;
     }
   }
@@ -84,18 +105,17 @@ function RequireRole({
   allowedRoles: Array<"student" | "company" | "university" | "admin">;
   children: ReactNode;
 }) {
-  const { firebaseUser, role, loading } = useAuth();
+  const { firebaseUser, role, loading, emailVerified } = useAuth();
   const location = useLocation();
 
-  if (loading) return <FullScreenLoader />;
+  if (loading && !firebaseUser) return <FullScreenLoader />;
+  if (!firebaseUser) return <Navigate to="/" replace state={{ from: location }} />;
 
-  if (!firebaseUser) {
-    return <Navigate to="/" replace state={{ from: location }} />;
+  if (!emailVerified) {
+    return <Navigate to="/verify-email" replace />;
   }
 
-  if (!role) {
-    return <FullScreenLoader />;
-  }
+  if (!role) return <FullScreenLoader />;
 
   if (!allowedRoles.includes(role)) {
     if (role === "admin") return <Navigate to="/admin/dashboard" replace />;
@@ -117,6 +137,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/student/login" element={<StudentLogin />} />
             <Route path="/student/signup" element={<StudentSignup />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/student/onboarding" element={<StudentOnboarding />} />
             <Route path="/company/login" element={<CompanyLogin />} />
             <Route path="/institution/register" element={<InstitutionRegister />} />

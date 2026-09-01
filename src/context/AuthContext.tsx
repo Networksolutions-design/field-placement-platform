@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, User, reload } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 
@@ -9,32 +9,45 @@ interface AuthContextValue {
   firebaseUser: User | null;
   role: Role;
   profile: Record<string, unknown> | null;
+  emailVerified: boolean;
   loading: boolean;
   error: string | null;
+  refreshEmailVerified: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   firebaseUser: null,
   role: null,
   profile: null,
+  emailVerified: false,
   loading: true,
   error: null,
+  refreshEmailVerified: async () => false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role>(null);
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Listens to Firebase Auth state
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
+      if (user) {
+        try {
+          await reload(user);
+        } catch {
+          // ignore, use cached user data
+        }
+        setEmailVerified(user.emailVerified ?? false);
+      } else {
+        setEmailVerified(false);
+      }
       setAuthInitialized(true);
-
       if (!user) {
         setRole(null);
         setProfile(null);
@@ -45,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribeAuth;
   }, []);
 
-  // Real-time role detection
   useEffect(() => {
     if (!firebaseUser) {
       setRole(null);
@@ -116,8 +128,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [firebaseUser, authInitialized]);
 
+  const refreshEmailVerified = async (): Promise<boolean> => {
+    if (!auth.currentUser) return false;
+    await reload(auth.currentUser);
+    const verified = auth.currentUser.emailVerified;
+    setEmailVerified(verified);
+    return verified;
+  };
+
   return (
-    <AuthContext.Provider value={{ firebaseUser, role, profile, loading, error }}>
+    <AuthContext.Provider
+      value={{
+        firebaseUser,
+        role,
+        profile,
+        emailVerified,
+        loading,
+        error,
+        refreshEmailVerified,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

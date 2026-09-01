@@ -54,50 +54,54 @@ export function Landing() {
   return (
     <PublicLayout>
       {/* Hero */}
-<section className="relative overflow-hidden bg-gradient-to-b from-teal-50/60 to-white">
-  <div className="max-w-4xl mx-auto px-4 pt-16 pb-20 sm:pt-24 sm:pb-28 text-center">
-    <div className="flex flex-col items-center">
-      <Badge variant="teal" className="mb-4">
-        <ShieldCheck className="w-3 h-3" /> Verified companies only
-      </Badge>
+      <section className="relative overflow-hidden bg-gradient-to-b from-teal-50/60 to-white py-20 md:py-32">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <div className="flex flex-col items-center">
+            <Badge variant="teal" className="mb-4">
+              <ShieldCheck className="w-3 h-3" /> Verified companies only
+            </Badge>
 
-      <h1 className="text-3xl sm:text-5xl font-bold text-gray-900 leading-tight tracking-tight max-w-3xl">
-        Discover your field placement. Connect directly with companies that want you.
-      </h1>
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900 leading-tight max-w-3xl">
+              Discover your{" "}
+              <span className="bg-gradient-to-r from-teal-600 to-teal-400 bg-clip-text text-transparent">
+                field placement
+              </span>
+              . Connect directly with companies that want you.
+            </h1>
 
-      <p className="mt-5 text-base sm:text-lg text-gray-600 leading-relaxed max-w-2xl">
-        The platform connects Tanzanian university students with verified
-        companies offering field and industrial training. No more wandering
-        campus notice boards.
-      </p>
+            <p className="mt-5 text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
+              The platform connects Tanzanian university students with verified
+              companies offering field and industrial training. No more
+              wandering campus notice boards.
+            </p>
 
-      <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center w-full sm:w-auto">
-        <Link to="/student/signup" className="w-full sm:w-auto">
-          <Button size="lg" className="w-full sm:w-auto">
-            🎓 Student <ArrowRight className="w-4 h-4" />
-          </Button>
-        </Link>
-        <Link to="/institution/register" className="w-full sm:w-auto">
-          <Button size="lg" variant="outline" className="w-full sm:w-auto">
-            <Building2 className="w-4 h-4" /> 🏛️ Institution
-          </Button>
-        </Link>
-      </div>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center w-full sm:w-auto">
+              <Link to="/student/signup" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto">
+                  🎓 Student <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link to="/institution/register" className="w-full sm:w-auto">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                  <Building2 className="w-4 h-4" /> 🏛️ Institution
+                </Button>
+              </Link>
+            </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
-        <span className="flex items-center gap-1.5">
-          <GraduationCap className="w-4 h-4" /> 8+ universities
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Building2 className="w-4 h-4" /> {mockCompanies.length} companies
-        </span>
-      </div>
-    </div>
-  </div>
-</section>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <GraduationCap className="w-4 h-4" /> 8+ universities
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Building2 className="w-4 h-4" /> {mockCompanies.length} companies
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* How it works */}
-      <section className="max-w-6xl mx-auto px-4 py-16 sm:py-20">
+      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">How it works</h2>
           <p className="mt-2 text-gray-500">Three steps from discovery to placement.</p>
@@ -142,7 +146,7 @@ export function Landing() {
       </section>
 
       {/* Featured companies */}
-      <section className="max-w-6xl mx-auto px-4 py-16 sm:py-20">
+      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
