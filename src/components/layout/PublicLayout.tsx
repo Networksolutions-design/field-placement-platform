@@ -18,12 +18,6 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <InstallPWAButton />
             <Link
-              to="/admin/login"
-              className="text-sm text-gray-500 hover:text-gray-800"
-            >
-              Admin
-            </Link>
-            <Link
               to="/explore"
               className="text-sm font-medium text-teal-600 hover:text-teal-700"
             >
