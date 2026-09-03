@@ -24,6 +24,8 @@ import {
   Clock,
   LogOut,
 } from "lucide-react";
+import { getProfileCompletion } from "@/utils/companyProfile";
+import { ProfileCompletionBanner } from "@/components/company/ProfileCompletionBanner";
 
 type CompanyProfileData = {
   companyName?: string;
@@ -41,6 +43,9 @@ type CompanyProfileData = {
   coverUrl?: string | null;
   status?: string;
   availableSlots?: number;
+  socials?: Record<string, string | null>;
+  description?: string | null;
+  extraRequirements?: string | null;
 };
 
 type StatsData = {
@@ -73,7 +78,7 @@ export function CompanyDashboard() {
         if (snap.exists()) {
           const data = snap.data() as CompanyProfileData;
           setProfile(data);
-          setAvailableSlotsInput(Number(data.availableSlots ?? 0));
+          setAvailableSlotsInput(Number(data.availableSlots ?? 1));
         } else {
           setProfile(null);
         }
@@ -162,7 +167,12 @@ export function CompanyDashboard() {
     typeof profile.logoUrl === "string" && profile.logoUrl.length > 0
       ? profile.logoUrl
       : null;
- 
+  
+
+  // Profile completion
+  const { percent, missing } = getProfileCompletion(
+    profile as unknown as Record<string, unknown>
+  );
 
   const isLive = status === "approved";
   const isPending = status === "pending";
@@ -238,6 +248,12 @@ export function CompanyDashboard() {
             {toastMessage}
           </div>
         )}
+
+        <ProfileCompletionBanner
+          percent={percent}
+          missing={missing}
+          onCompleteProfile={() => navigate("/company/profile/complete")}
+        />
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">

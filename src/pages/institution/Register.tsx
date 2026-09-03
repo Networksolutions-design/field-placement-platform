@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/Card";
 import { Input, Textarea } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { createUserWithEmailAndPassword, sendEmailVerification, reload } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import type { Category, YearOfStudy } from "@/types";
 import {
@@ -40,6 +41,21 @@ const ALL_YEARS: YearOfStudy[] = [
   "Postgraduate",
 ];
 
+const PROGRAMME_OPTIONS = [
+  "Land Management",
+  "Land Surveying",
+  "Valuation",
+  "Architecture",
+  "Civil Engineering",
+  "Computer Science",
+  "Information Technology",
+  "Accounting",
+  "Finance",
+  "Business Administration",
+  "Environmental Science",
+  "Geography",
+];
+
 function getFirebaseErrorMessage(error: unknown): string {
   const code = (error as { code?: string })?.code;
   if (code === "auth/email-already-in-use") return "This email is already registered.";
@@ -61,7 +77,6 @@ interface CompanyForm {
   acceptedYears: YearOfStudy[];
   applicationMethod: "office_visit" | "email_whatsapp";
 
-  // Enrichment fields (optional, filled later in profile completion)
   tagline: string;
   description: string;
   phone: string;
@@ -97,6 +112,10 @@ interface UniversityForm {
   coordinatorWhatsApp: string;
   accredited: boolean;
   agreedTerms: boolean;
+}
+
+interface InstitutionRegisterProps {
+  mode?: "signup" | "edit" | "complete";
 }
 
 const initialCompanyForm: CompanyForm = {
@@ -147,7 +166,7 @@ const initialUniversityForm: UniversityForm = {
   agreedTerms: false,
 };
 
-export function InstitutionRegister() {
+export function InstitutionRegister({ mode = "signup" }: InstitutionRegisterProps) {
   const navigate = useNavigate();
   const {
     showToast,
@@ -156,11 +175,12 @@ export function InstitutionRegister() {
     currentCompany,
     updateCompanyProfile,
   } = useApp();
+  const { firebaseUser } = useAuth();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(
     searchParams.get("tab") === "university" ? "university" : "company",
   );
-  const isEditing = Boolean(currentUniversity);
+  const isEditing = Boolean(currentUniversity) || searchParams.get("edit") === "company";
   const isCompanyEditing = searchParams.get("edit") === "company";
   const [companyForm, setCompanyForm] = useState<CompanyForm>(initialCompanyForm);
   const [universityForm, setUniversityForm] =
@@ -289,6 +309,44 @@ export function InstitutionRegister() {
   }
 
   async function handleCompanySubmit() {
+    // If mode is complete, update only enrichment fields
+    if (mode === "complete") {
+      if (!firebaseUser) {
+        showToast("No user session found. Please log in again.", "error");
+        return;
+      }
+
+      try {
+        await updateDoc(doc(db, "companies", firebaseUser.uid), {
+          tagline: companyForm.tagline || null,
+          description: companyForm.description || null,
+          phone: companyForm.phone || null,
+          whatsapp: companyForm.whatsapp || null,
+          poBox: companyForm.poBox || null,
+          city: companyForm.city || null,
+          region: companyForm.region || null,
+          website: companyForm.website || null,
+          socials: {
+            linkedin: companyForm.linkedin || null,
+            instagram: companyForm.instagram || null,
+            x: companyForm.twitter || null,
+            facebook: companyForm.facebook || null,
+          },
+          preferredProgrammes: companyForm.preferredProgrammes,
+          extraRequirements: companyForm.additionalRequirements || null,
+          availableSlots: companyForm.availableSlots || 1,
+          logoUrl: companyForm.logoUrl || null,
+          coverUrl: companyForm.coverUrl || null,
+          updatedAt: serverTimestamp(),
+        });
+        showToast("Profile details saved.", "success");
+        navigate("/company/dashboard");
+      } catch (error) {
+        showToast("Failed to save details. Please try again.", "error");
+      }
+      return;
+    }
+
     const missing = validateCompanyForm();
     if (missing.length > 0) {
       showToast(`Missing: ${missing.join(", ")}`, "error");
@@ -557,510 +615,806 @@ export function InstitutionRegister() {
         </button>
 
         <h1 className="text-2xl font-bold text-gray-900 mb-1">
-          Register your institution
+          {mode === "complete" ? "Complete your company profile" : "Register your institution"}
         </h1>
         <p className="text-sm text-gray-500 mb-6">
-          Create an account for your company or university.
+          {mode === "complete"
+            ? "Add a few more details to help students understand your company."
+            : "Create an account for your company or university."}
         </p>
 
-        {/* Tab switch */}
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6">
-          <button
-            onClick={() => setTab("company")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === "company"
-                ? "bg-white text-teal-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <Building2 className="w-4 h-4" /> Company
-          </button>
-          <button
-            onClick={() => setTab("university")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === "university"
-                ? "bg-white text-teal-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" /> University
-          </button>
-        </div>
+        {/* Tab switch (hidden in complete mode) */}
+        {mode !== "complete" && (
+          <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6">
+            <button
+              onClick={() => setTab("company")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                tab === "company"
+                  ? "bg-white text-teal-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Building2 className="w-4 h-4" /> Company
+            </button>
+            <button
+              onClick={() => setTab("university")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                tab === "university"
+                  ? "bg-white text-teal-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" /> University
+            </button>
+          </div>
+        )}
 
-        {tab === "company" ? (
-          <div
-            key="company"
-            className="animate-[fadeIn_0.2s_ease-out]"
-          >
-            <Card className="p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Company account
-              </h2>
-              <Input
-                label="Company Email"
-                name="companyEmail"
-                type="email"
-                placeholder="info@yourcompany.co.tz"
-                value={companyForm.email}
-                onChange={(e) =>
-                  setCompanyForm({ ...companyForm, email: e.target.value })
-                }
-              />
-              <div>
-                <Input
-                  label="Password"
-                  name="companyPassword"
-                  type="password"
-                  placeholder="At least 6 characters"
-                  value={companyForm.password}
-                  onChange={(e) => {
-                    setCompanyForm({ ...companyForm, password: e.target.value });
-                    setShowCompanyPasswordChecks(true);
-                  }}
-                />
-                {showCompanyPasswordChecks && (
-                  <div className="mt-2 space-y-1.5">
-                    <PasswordRequirement label="At least 6 characters" met={companyPasswordChecks.length} />
-                    <PasswordRequirement label="One lowercase letter" met={companyPasswordChecks.lower} />
-                    <PasswordRequirement label="One uppercase letter" met={companyPasswordChecks.upper} />
-                    <PasswordRequirement label="One number" met={companyPasswordChecks.number} />
-                    <PasswordRequirement label="One symbol (!@#$...)" met={companyPasswordChecks.symbol} />
-                  </div>
-                )}
-              </div>
-              <Input
-                label="Company Full Name"
-                name="companyFullName"
-                placeholder="e.g. Ardhi Surveyors Ltd"
-                value={companyForm.fullName}
-                onChange={(e) =>
-                  setCompanyForm({ ...companyForm, fullName: e.target.value })
-                }
-              />
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={companyForm.authorized}
-                  onChange={(e) =>
-                    setCompanyForm({
-                      ...companyForm,
-                      authorized: e.target.checked,
-                    })
-                  }
-                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                />
-                <span className="text-sm text-gray-600">
-                  I confirm that I am an authorized representative and agree to
-                  the{" "}
-                  <a href="/terms" className="text-teal-600 hover:underline">
-                    Terms
-                  </a>{" "}
-                  &{" "}
-                  <a href="/privacy" className="text-teal-600 hover:underline">
-                    Privacy Policy
-                  </a>
-                  .
-                </span>
+        {mode === "complete" ? (
+          // ============ COMPLETE MODE: ONLY ENRICHMENT FIELDS ============
+          <Card className="p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Just a few more details
+            </h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Tagline (optional)
               </label>
-
-              <hr className="border-gray-100" />
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Categories (select all that apply)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_CATEGORIES.map((cat) => {
-                    const selected = companyForm.categories.includes(cat);
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() =>
-                          setCompanyForm({
-                            ...companyForm,
-                            categories: toggleArrayItem(
-                              companyForm.categories,
-                              cat,
-                            ),
-                          })
-                        }
-                        className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
-                          selected
-                            ? "bg-teal-600 text-white shadow-sm"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <Input
-                label="Physical Address"
-                name="address"
-                placeholder="e.g. 123 Mlimani Tower, Sam Nujoma Road"
-                value={companyForm.address}
+                name="tagline"
+                placeholder="A short, catchy one-liner about your company"
+                value={companyForm.tagline}
+                maxLength={80}
                 onChange={(e) =>
-                  setCompanyForm({ ...companyForm, address: e.target.value })
+                  setCompanyForm({ ...companyForm, tagline: e.target.value })
                 }
               />
-
+            </div>
+            <Textarea
+              label="Description (optional)"
+              name="description"
+              placeholder="Describe what your company does and what students can expect"
+              rows={4}
+              value={companyForm.description}
+              onChange={(e) =>
+                setCompanyForm({ ...companyForm, description: e.target.value })
+              }
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Contact Email"
-                name="contactEmail"
-                type="email"
-                placeholder="info@company.co.tz"
-                value={companyForm.contactEmail}
+                label="Office Phone (optional)"
+                name="phone"
+                placeholder="+255 22 123 4567"
+                value={companyForm.phone}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, phone: e.target.value })
+                }
+              />
+              <Input
+                label="WhatsApp Number (optional)"
+                name="whatsapp"
+                placeholder="+255 712 345 678"
+                value={companyForm.whatsapp}
                 onChange={(e) =>
                   setCompanyForm({
                     ...companyForm,
-                    contactEmail: e.target.value,
+                    whatsapp: formatWhatsApp(e.target.value),
                   })
                 }
               />
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Placement Preferences — Accepted years
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {ALL_YEARS.map((year) => {
-                    const selected = companyForm.acceptedYears.includes(year);
-                    return (
-                      <label
-                        key={year}
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 cursor-pointer transition-all ${
-                          selected
-                            ? "border-teal-500 bg-teal-50"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() =>
-                            setCompanyForm({
-                              ...companyForm,
-                              acceptedYears: toggleArrayItem(
-                                companyForm.acceptedYears,
-                                year,
-                              ),
-                            })
-                          }
-                          className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                        />
-                        <span className="text-sm text-gray-700">{year}</span>
-                      </label>
-                    );
-                  })}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="P.O. Box (optional)"
+                name="poBox"
+                placeholder="e.g. 12345 DSM"
+                value={companyForm.poBox}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, poBox: e.target.value })
+                }
+              />
+              <Input
+                label="City (optional)"
+                name="city"
+                placeholder="e.g. Dar es Salaam"
+                value={companyForm.city}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, city: e.target.value })
+                }
+              />
+            </div>
+            <Input
+              label="Region (optional)"
+              name="region"
+              placeholder="e.g. Dar es Salaam"
+              value={companyForm.region}
+              onChange={(e) =>
+                setCompanyForm({ ...companyForm, region: e.target.value })
+              }
+            />
+            <Input
+              label="Website URL (optional)"
+              name="website"
+              placeholder="https://company.co.tz"
+              value={companyForm.website}
+              onChange={(e) =>
+                setCompanyForm({ ...companyForm, website: e.target.value })
+              }
+            />
+            <div id="social-links">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Social media links (optional)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  name="linkedin"
+                  placeholder="https://linkedin.com/company/..."
+                  value={companyForm.linkedin}
+                  onChange={(e) =>
+                    setCompanyForm({ ...companyForm, linkedin: e.target.value })
+                  }
+                />
+                <Input
+                  name="instagram"
+                  placeholder="https://instagram.com/..."
+                  value={companyForm.instagram}
+                  onChange={(e) =>
+                    setCompanyForm({ ...companyForm, instagram: e.target.value })
+                  }
+                />
+                <Input
+                  name="twitter"
+                  placeholder="https://twitter.com/... or https://x.com/..."
+                  value={companyForm.twitter}
+                  onChange={(e) =>
+                    setCompanyForm({ ...companyForm, twitter: e.target.value })
+                  }
+                />
+                <Input
+                  name="facebook"
+                  placeholder="https://facebook.com/..."
+                  value={companyForm.facebook}
+                  onChange={(e) =>
+                    setCompanyForm({ ...companyForm, facebook: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Preferred programmes (optional)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PROGRAMME_OPTIONS.map((prog) => {
+                  const selected = companyForm.preferredProgrammes.includes(prog);
+                  return (
+                    <button
+                      key={prog}
+                      type="button"
+                      onClick={() =>
+                        setCompanyForm({
+                          ...companyForm,
+                          preferredProgrammes: toggleArrayItem(
+                            companyForm.preferredProgrammes,
+                            prog,
+                          ),
+                        })
+                      }
+                      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
+                        selected
+                          ? "bg-teal-600 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {prog}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Textarea
+              label="Additional requirements (optional)"
+              name="additionalRequirements"
+              placeholder="e.g. Must have own laptop, must complete safety induction"
+              rows={3}
+              value={companyForm.additionalRequirements}
+              onChange={(e) =>
+                setCompanyForm({
+                  ...companyForm,
+                  additionalRequirements: e.target.value,
+                })
+              }
+            />
+            <Input
+              label="Positions available (optional, defaults to 1)"
+              name="availableSlots"
+              type="number"
+              min={0}
+              placeholder="e.g. 5"
+              value={companyForm.availableSlots}
+              onChange={(e) =>
+                setCompanyForm({
+                  ...companyForm,
+                  availableSlots: Number(e.target.value),
+                })
+              }
+            />
+            {/* Logo upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company logo (optional)
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden">
+                  {companyForm.logoUrl ? (
+                    <img
+                      src={companyForm.logoUrl}
+                      alt="Logo preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-gray-300" />
+                  )}
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  How should students apply?
+                <label className="cursor-pointer">
+                  <span className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all">
+                    <Upload className="w-4 h-4" /> Upload logo
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () =>
+                          setCompanyForm({
+                            ...companyForm,
+                            logoUrl: reader.result as string,
+                          });
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
                 </label>
-                <select
-                  value={companyForm.applicationMethod}
-                  onChange={(e) =>
-                    setCompanyForm({
-                      ...companyForm,
-                      applicationMethod: e.target.value as
-                        | "office_visit"
-                        | "email_whatsapp",
-                    })
-                  }
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                >
-                  <option value="office_visit">
-                    Drop off a hard-copy letter at our office
-                  </option>
-                  <option value="email_whatsapp">
-                    Email / WhatsApp a scanned copy
-                  </option>
-                </select>
               </div>
+            </div>
+            {/* Cover upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cover image (optional)
+              </label>
+              <div className="relative h-40 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden">
+                {companyForm.coverUrl ? (
+                  <img
+                    src={companyForm.coverUrl}
+                    alt="Cover preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : companyForm.logoUrl ? (
+                  <img
+                    src={companyForm.logoUrl}
+                    alt="Logo as cover"
+                    className="w-full h-full object-cover opacity-80"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                    <ImageIcon className="w-10 h-10 text-gray-300" />
+                    <span className="text-sm text-gray-400">
+                      Upload a cover image
+                    </span>
+                  </div>
+                )}
+              </div>
+              <label className="cursor-pointer mt-2 inline-block">
+                <span className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all">
+                  <Upload className="w-4 h-4" /> Upload cover
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () =>
+                        setCompanyForm({
+                          ...companyForm,
+                          coverUrl: reader.result as string,
+                        });
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
 
-              <Button className="w-full" onClick={handleCompanySubmit}>
-                <Check className="w-4 h-4" /> {isCompanyEditing ? "Save Changes" : "Submit for Review"}
-              </Button>
-
-              {/* Login link for existing companies */}
-              <p className="text-center text-sm text-gray-500">
-                Already have an account?{" "}
-                <Link to="/company/login" className="text-teal-600 font-medium hover:underline">
-                  Log in
-                </Link>
-              </p>
-            </Card>
-          </div>
+            <Button className="w-full" onClick={handleCompanySubmit}>
+              <Check className="w-4 h-4" /> Save Details
+            </Button>
+          </Card>
         ) : (
-          <div
-            key="university"
-            className="animate-[fadeIn_0.2s_ease-out]"
-          >
-            <Card className="p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                University account
-              </h2>
-              <Input
-                label="University Email"
-                name="uniEmail"
-                type="email"
-                placeholder="name@udsm.ac.tz"
-                value={universityForm.email}
-                onChange={(e) =>
-                  setUniversityForm({ ...universityForm, email: e.target.value })
-                }
-              />
-              <Input
-                label="Password"
-                name="uniPassword"
-                type="password"
-                placeholder="At least 6 characters"
-                value={universityForm.password}
-                onChange={(e) =>
-                  setUniversityForm({
-                    ...universityForm,
-                    password: e.target.value,
-                  })
-                }
-              />
-              <Input
-                label="University Full Name"
-                name="uniFullName"
-                placeholder="e.g. University of Dar es Salaam"
-                value={universityForm.fullName}
-                onChange={(e) =>
-                  setUniversityForm({
-                    ...universityForm,
-                    fullName: e.target.value,
-                  })
-                }
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Acronym"
-                  name="acronym"
-                  placeholder="e.g. UDSM, ARU, SUA"
-                  value={universityForm.acronym}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      acronym: e.target.value,
-                    })
-                  }
-                />
-                <Input
-                  label="TCU Registration Number"
-                  name="tcuReg"
-                  placeholder="e.g. TCU/UDSM/001"
-                  value={universityForm.tcuRegistrationNumber}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      tcuRegistrationNumber: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    University Type
+          // ============ SIGNUP/EDIT MODE (EXISTING LOGIC) ============
+          <div>
+            {tab === "company" ? (
+              <div
+                key="company"
+                className="animate-[fadeIn_0.2s_ease-out]"
+              >
+                <Card className="p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Company account
+                  </h2>
+                  <Input
+                    label="Company Email"
+                    name="companyEmail"
+                    type="email"
+                    placeholder="info@yourcompany.co.tz"
+                    value={companyForm.email}
+                    onChange={(e) =>
+                      setCompanyForm({ ...companyForm, email: e.target.value })
+                    }
+                  />
+                  <div>
+                    <Input
+                      label="Password"
+                      name="companyPassword"
+                      type="password"
+                      placeholder="At least 6 characters"
+                      value={companyForm.password}
+                      onChange={(e) => {
+                        setCompanyForm({ ...companyForm, password: e.target.value });
+                        setShowCompanyPasswordChecks(true);
+                      }}
+                    />
+                    {showCompanyPasswordChecks && (
+                      <div className="mt-2 space-y-1.5">
+                        <PasswordRequirement label="At least 6 characters" met={companyPasswordChecks.length} />
+                        <PasswordRequirement label="One lowercase letter" met={companyPasswordChecks.lower} />
+                        <PasswordRequirement label="One uppercase letter" met={companyPasswordChecks.upper} />
+                        <PasswordRequirement label="One number" met={companyPasswordChecks.number} />
+                        <PasswordRequirement label="One symbol (!@#$...)" met={companyPasswordChecks.symbol} />
+                      </div>
+                    )}
+                  </div>
+                  <Input
+                    label="Company Full Name"
+                    name="companyFullName"
+                    placeholder="e.g. Ardhi Surveyors Ltd"
+                    value={companyForm.fullName}
+                    onChange={(e) =>
+                      setCompanyForm({ ...companyForm, fullName: e.target.value })
+                    }
+                  />
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={companyForm.authorized}
+                      onChange={(e) =>
+                        setCompanyForm({
+                          ...companyForm,
+                          authorized: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-sm text-gray-600">
+                      I confirm that I am an authorized representative and agree to
+                      the{" "}
+                      <a href="/terms" className="text-teal-600 hover:underline">
+                        Terms
+                      </a>{" "}
+                      &{" "}
+                      <a href="/privacy" className="text-teal-600 hover:underline">
+                        Privacy Policy
+                      </a>
+                      .
+                    </span>
                   </label>
-                  <select
-                    value={universityForm.universityType}
+
+                  <hr className="border-gray-100" />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Categories (select all that apply)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {ALL_CATEGORIES.map((cat) => {
+                        const selected = companyForm.categories.includes(cat);
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() =>
+                              setCompanyForm({
+                                ...companyForm,
+                                categories: toggleArrayItem(
+                                  companyForm.categories,
+                                  cat,
+                                ),
+                              })
+                            }
+                            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
+                              selected
+                                ? "bg-teal-600 text-white shadow-sm"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Input
+                    label="Physical Address"
+                    name="address"
+                    placeholder="e.g. 123 Mlimani Tower, Sam Nujoma Road"
+                    value={companyForm.address}
+                    onChange={(e) =>
+                      setCompanyForm({ ...companyForm, address: e.target.value })
+                    }
+                  />
+
+                  <Input
+                    label="Contact Email"
+                    name="contactEmail"
+                    type="email"
+                    placeholder="info@company.co.tz"
+                    value={companyForm.contactEmail}
+                    onChange={(e) =>
+                      setCompanyForm({
+                        ...companyForm,
+                        contactEmail: e.target.value,
+                      })
+                    }
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Placement Preferences — Accepted years
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {ALL_YEARS.map((year) => {
+                        const selected = companyForm.acceptedYears.includes(year);
+                        return (
+                          <label
+                            key={year}
+                            className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 cursor-pointer transition-all ${
+                              selected
+                                ? "border-teal-500 bg-teal-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() =>
+                                setCompanyForm({
+                                  ...companyForm,
+                                  acceptedYears: toggleArrayItem(
+                                    companyForm.acceptedYears,
+                                    year,
+                                  ),
+                                })
+                              }
+                              className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                            />
+                            <span className="text-sm text-gray-700">{year}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      How should students apply?
+                    </label>
+                    <select
+                      value={companyForm.applicationMethod}
+                      onChange={(e) =>
+                        setCompanyForm({
+                          ...companyForm,
+                          applicationMethod: e.target.value as
+                            | "office_visit"
+                            | "email_whatsapp",
+                        })
+                      }
+                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    >
+                      <option value="office_visit">
+                        Drop off a hard-copy letter at our office
+                      </option>
+                      <option value="email_whatsapp">
+                        Email / WhatsApp a scanned copy
+                      </option>
+                    </select>
+                  </div>
+
+                  <Button className="w-full" onClick={handleCompanySubmit}>
+                    <Check className="w-4 h-4" /> {isCompanyEditing ? "Save Changes" : "Submit for Review"}
+                  </Button>
+
+                  <p className="text-sm text-gray-500 text-center">
+                    You can add your logo, WhatsApp, and more after signing up — this takes less than a minute.
+                  </p>
+
+                  <p className="text-center text-sm text-gray-500">
+                    Already have an account?{" "}
+                    <Link to="/company/login" className="text-teal-600 font-medium hover:underline">
+                      Log in
+                    </Link>
+                  </p>
+                </Card>
+              </div>
+            ) : (
+              <div
+                key="university"
+                className="animate-[fadeIn_0.2s_ease-out]"
+              >
+                <Card className="p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    University account
+                  </h2>
+                  <Input
+                    label="University Email"
+                    name="uniEmail"
+                    type="email"
+                    placeholder="name@udsm.ac.tz"
+                    value={universityForm.email}
+                    onChange={(e) =>
+                      setUniversityForm({ ...universityForm, email: e.target.value })
+                    }
+                  />
+                  <Input
+                    label="Password"
+                    name="uniPassword"
+                    type="password"
+                    placeholder="At least 6 characters"
+                    value={universityForm.password}
                     onChange={(e) =>
                       setUniversityForm({
                         ...universityForm,
-                        universityType: e.target.value as "Public" | "Private",
+                        password: e.target.value,
                       })
                     }
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                  >
-                    <option value="Public">Public</option>
-                    <option value="Private">Private</option>
-                  </select>
-                </div>
-                <Input
-                  label="Year of Establishment"
-                  name="establishedYear"
-                  type="number"
-                  placeholder="e.g. 1961"
-                  value={universityForm.establishedYear}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      establishedYear: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <Input
-                label="Physical Address"
-                name="uniAddress"
-                placeholder="e.g. Mlimani Campus, University Road"
-                value={universityForm.address}
-                onChange={(e) =>
-                  setUniversityForm({
-                    ...universityForm,
-                    address: e.target.value,
-                  })
-                }
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="P.O. Box"
-                  name="uniPoBox"
-                  placeholder="e.g. P.O. Box 35091"
-                  value={universityForm.poBox}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      poBox: e.target.value,
-                    })
-                  }
-                />
-                <Input
-                  label="Official University Phone"
-                  name="uniPhone"
-                  placeholder="+255 22 241 0078"
-                  value={universityForm.phone}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      phone: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <Input
-                label="Official University Website"
-                name="uniWebsite"
-                placeholder="https://www.udsm.ac.tz"
-                value={universityForm.website}
-                onChange={(e) =>
-                  setUniversityForm({
-                    ...universityForm,
-                    website: e.target.value,
-                  })
-                }
-              />
-              <Input
-                label="Industrial Training Coordinator WhatsApp Number"
-                name="uniCoordinatorWhatsApp"
-                placeholder="e.g. 2557XXXXXXXX"
-                value={universityForm.coordinatorWhatsApp}
-                onChange={(e) =>
-                  setUniversityForm({
-                    ...universityForm,
-                    coordinatorWhatsApp: formatWhatsApp(e.target.value),
-                  })
-                }
-              />
-
-              {/* Logo upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  University logo
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden">
-                    {universityForm.logoUrl ? (
-                      <img
-                        src={universityForm.logoUrl}
-                        alt="Logo preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <ImageIcon className="w-8 h-8 text-gray-300" />
-                    )}
-                  </div>
-                  <label className="cursor-pointer">
-                    <span className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all">
-                      <Upload className="w-4 h-4" /> Upload logo
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () =>
-                            setUniversityForm({
-                              ...universityForm,
-                              logoUrl: reader.result as string,
-                            });
-                          reader.readAsDataURL(file);
-                        }
-                      }}
+                  />
+                  <Input
+                    label="University Full Name"
+                    name="uniFullName"
+                    placeholder="e.g. University of Dar es Salaam"
+                    value={universityForm.fullName}
+                    onChange={(e) =>
+                      setUniversityForm({
+                        ...universityForm,
+                        fullName: e.target.value,
+                      })
+                    }
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Acronym"
+                      name="acronym"
+                      placeholder="e.g. UDSM, ARU, SUA"
+                      value={universityForm.acronym}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          acronym: e.target.value,
+                        })
+                      }
                     />
+                    <Input
+                      label="TCU Registration Number"
+                      name="tcuReg"
+                      placeholder="e.g. TCU/UDSM/001"
+                      value={universityForm.tcuRegistrationNumber}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          tcuRegistrationNumber: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        University Type
+                      </label>
+                      <select
+                        value={universityForm.universityType}
+                        onChange={(e) =>
+                          setUniversityForm({
+                            ...universityForm,
+                            universityType: e.target.value as "Public" | "Private",
+                          })
+                        }
+                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                      >
+                        <option value="Public">Public</option>
+                        <option value="Private">Private</option>
+                      </select>
+                    </div>
+                    <Input
+                      label="Year of Establishment"
+                      name="establishedYear"
+                      type="number"
+                      placeholder="e.g. 1961"
+                      value={universityForm.establishedYear}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          establishedYear: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <Input
+                    label="Physical Address"
+                    name="uniAddress"
+                    placeholder="e.g. Mlimani Campus, University Road"
+                    value={universityForm.address}
+                    onChange={(e) =>
+                      setUniversityForm({
+                        ...universityForm,
+                        address: e.target.value,
+                      })
+                    }
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="P.O. Box"
+                      name="uniPoBox"
+                      placeholder="e.g. P.O. Box 35091"
+                      value={universityForm.poBox}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          poBox: e.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      label="Official University Phone"
+                      name="uniPhone"
+                      placeholder="+255 22 241 0078"
+                      value={universityForm.phone}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          phone: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <Input
+                    label="Official University Website"
+                    name="uniWebsite"
+                    placeholder="https://www.udsm.ac.tz"
+                    value={universityForm.website}
+                    onChange={(e) =>
+                      setUniversityForm({
+                        ...universityForm,
+                        website: e.target.value,
+                      })
+                    }
+                  />
+                  <Input
+                    label="Industrial Training Coordinator WhatsApp Number"
+                    name="uniCoordinatorWhatsApp"
+                    placeholder="e.g. 2557XXXXXXXX"
+                    value={universityForm.coordinatorWhatsApp}
+                    onChange={(e) =>
+                      setUniversityForm({
+                        ...universityForm,
+                        coordinatorWhatsApp: formatWhatsApp(e.target.value),
+                      })
+                    }
+                  />
+
+                  {/* Logo upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      University logo
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden">
+                        {universityForm.logoUrl ? (
+                          <img
+                            src={universityForm.logoUrl}
+                            alt="Logo preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <ImageIcon className="w-8 h-8 text-gray-300" />
+                        )}
+                      </div>
+                      <label className="cursor-pointer">
+                        <span className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all">
+                          <Upload className="w-4 h-4" /> Upload logo
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () =>
+                                setUniversityForm({
+                                  ...universityForm,
+                                  logoUrl: reader.result as string,
+                                });
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <hr className="border-gray-100" />
+
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={universityForm.accredited}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          accredited: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-sm text-gray-600">
+                      I confirm that this institution is fully accredited by TCU and
+                      I am an authorized representative.
+                    </span>
                   </label>
-                </div>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={universityForm.agreedTerms}
+                      onChange={(e) =>
+                        setUniversityForm({
+                          ...universityForm,
+                          agreedTerms: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-sm text-gray-600">
+                      I agree to the{" "}
+                      <a href="/terms" className="text-teal-600 hover:underline">
+                        Terms
+                      </a>{" "}
+                      &{" "}
+                      <a href="/privacy" className="text-teal-600 hover:underline">
+                        Privacy Policy
+                      </a>
+                      .
+                    </span>
+                  </label>
+
+                  <Button className="w-full" onClick={handleUniversitySubmit}>
+                    <Check className="w-4 h-4" /> {isEditing ? "Save Changes" : "Submit for Review"}
+                  </Button>
+
+                  <p className="text-center text-sm text-gray-500">
+                    Already have an account?{" "}
+                    <Link to="/company/login" className="text-teal-600 font-medium hover:underline">
+                      Log in
+                    </Link>
+                  </p>
+                </Card>
               </div>
-
-              <hr className="border-gray-100" />
-
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={universityForm.accredited}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      accredited: e.target.checked,
-                    })
-                  }
-                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                />
-                <span className="text-sm text-gray-600">
-                  I confirm that this institution is fully accredited by TCU and
-                  I am an authorized representative.
-                </span>
-              </label>
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={universityForm.agreedTerms}
-                  onChange={(e) =>
-                    setUniversityForm({
-                      ...universityForm,
-                      agreedTerms: e.target.checked,
-                    })
-                  }
-                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                />
-                <span className="text-sm text-gray-600">
-                  I agree to the{" "}
-                  <a href="/terms" className="text-teal-600 hover:underline">
-                    Terms
-                  </a>{" "}
-                  &{" "}
-                  <a href="/privacy" className="text-teal-600 hover:underline">
-                    Privacy Policy
-                  </a>
-                  .
-                </span>
-              </label>
-
-              <Button className="w-full" onClick={handleUniversitySubmit}>
-                <Check className="w-4 h-4" /> {isEditing ? "Save Changes" : "Submit for Review"}
-              </Button>
-
-              {/* Login link for existing universities */}
-              <p className="text-center text-sm text-gray-500">
-                Already have an account?{" "}
-                <Link to="/company/login" className="text-teal-600 font-medium hover:underline">
-                  Log in
-                </Link>
-              </p>
-            </Card>
+            )}
           </div>
         )}
       </div>

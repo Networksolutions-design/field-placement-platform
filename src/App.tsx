@@ -43,10 +43,18 @@ function SessionGuard({ children }: { children: ReactNode }) {
   const location = useLocation();
   const path = location.pathname;
 
-  if (loading && !firebaseUser) return <FullScreenLoader />;
+  if (loading) return <FullScreenLoader />;
   if (!firebaseUser) return <>{children}</>;
 
-  // Unverified users: only allow certain paths
+  // Admin bypasses email verification
+  if (role === "admin") {
+    if (path === "/" || path === "/admin/login") {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    return <>{children}</>;
+  }
+
+  // Unverified non-admin users: only allow certain paths
   if (!emailVerified) {
     const unverifiedAllowedPaths = [
       "/",
@@ -65,7 +73,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // Verified user redirects
+  // Verified non-admin user redirects
   if (role === "student") {
     if (
       path === "/" ||
@@ -89,12 +97,6 @@ function SessionGuard({ children }: { children: ReactNode }) {
     }
   }
 
-  if (role === "admin") {
-    if (path === "/" || path === "/admin/login" || path === "/verify-email") {
-      return <Navigate to="/admin/dashboard" replace />;
-    }
-  }
-
   return <>{children}</>;
 }
 
@@ -108,17 +110,26 @@ function RequireRole({
   const { firebaseUser, role, loading, emailVerified } = useAuth();
   const location = useLocation();
 
-  if (loading && !firebaseUser) return <FullScreenLoader />;
+  if (loading) return <FullScreenLoader />;
   if (!firebaseUser) return <Navigate to="/" replace state={{ from: location }} />;
 
+  if (!role) return <FullScreenLoader />;
+
+  // Admin bypasses email verification
+  if (role === "admin") {
+    if (allowedRoles.includes("admin")) {
+      return <>{children}</>;
+    } else {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+  }
+
+  // Non-admin: require email verification
   if (!emailVerified) {
     return <Navigate to="/verify-email" replace />;
   }
 
-  if (!role) return <FullScreenLoader />;
-
   if (!allowedRoles.includes(role)) {
-    if (role === "admin") return <Navigate to="/admin/dashboard" replace />;
     if (role === "company") return <Navigate to="/company/dashboard" replace />;
     if (role === "university") return <Navigate to="/university/dashboard" replace />;
     return <Navigate to="/explore" replace />;
@@ -176,6 +187,14 @@ function App() {
               element={
                 <RequireRole allowedRoles={["company"]}>
                   <CompanyDashboard />
+                </RequireRole>
+              }
+            />
+                        <Route
+              path="/company/profile/complete"
+              element={
+                <RequireRole allowedRoles={["company"]}>
+                  <InstitutionRegister mode="complete" />
                 </RequireRole>
               }
             />
