@@ -13,60 +13,71 @@ export function CompanyCard({ company, matchesYear }: CompanyCardProps) {
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02, boxShadow: "0 12px 24px -8px rgba(0,0,0,0.12)" }}
+      whileHover={{ scale: 1.02, boxShadow: "0 12px 24px -8px rgba(0,0,0,0.18)" }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       onClick={() => navigate(`/company/${company.id}`)}
-      className="group flex flex-col items-center justify-center w-full cursor-pointer"
+      className="group relative w-full aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-md"
     >
-      {/* Top image area */}
+      {/* Cover / gradient background */}
       <div
-        className="relative w-full h-40 sm:h-48 rounded-lg shadow-md bg-cover bg-center overflow-hidden transition-all duration-300 group-hover:shadow-xl"
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
         style={
           company.coverUrl
             ? { backgroundImage: `url(${company.coverUrl})` }
-            : { backgroundImage: "linear-gradient(135deg, #0d9488 0%, #ccfbf1 100%)" }
+            : company.logoUrl
+              ? {
+                  backgroundImage: `url(${company.logoUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : {
+                  backgroundImage:
+                    "linear-gradient(135deg, #0d9488 0%, #ccfbf1 100%)",
+                }
         }
-      >
-        {company.verified && (
-          <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
-            <BadgeCheck className="w-3 h-3" />
-            Verified
-          </span>
-        )}
-      </div>
+      />
 
-      {/* Overlapping floating panel */}
-      <div className="w-[88%] -mt-10 overflow-hidden bg-white rounded-lg shadow-lg transition-all duration-300 group-hover:shadow-xl dark:bg-gray-800">
-        {/* Logo + name */}
-        <div className="flex flex-col items-center pt-2">
+      {/* Dark gradient overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+
+      {/* Verified badge */}
+      {company.verified && (
+        <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+          <BadgeCheck className="w-3 h-3" />
+          Verified
+        </span>
+      )}
+
+      {/* Bottom info panel */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+        <div className="flex items-center gap-2 mb-1.5">
           {company.logoUrl ? (
             <img
               src={company.logoUrl}
               alt={company.name}
-              className="w-12 h-12 -mt-6 rounded-full object-cover ring-4 ring-white dark:ring-gray-800 shrink-0"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-white/80 shrink-0"
             />
           ) : (
             <div
-              className="w-12 h-12 -mt-6 rounded-full flex items-center justify-center text-white font-bold text-lg ring-4 ring-white dark:ring-gray-800 shrink-0"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm ring-2 ring-white/80 shrink-0"
               style={{ backgroundColor: company.logoColor }}
             >
               {company.name.charAt(0)}
             </div>
           )}
-          <h3 className="py-2 px-2 font-bold tracking-wide text-center text-gray-800 uppercase text-sm dark:text-white truncate w-full">
+          <h3 className="font-bold text-sm leading-tight truncate">
             {company.name}
           </h3>
         </div>
 
-        {/* Bottom row: category + year match */}
-        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700">
-          <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center rounded-full bg-white/20 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-white">
             {company.category}
           </span>
           {matchesYear && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
               Matches your year
             </span>
           )}
