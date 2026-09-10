@@ -5,6 +5,9 @@ import { UniversityBrowseLayout } from "@/components/layout/UniversityBrowseLayo
 import { CompanyCard } from "@/components/company/CompanyCard";
 import { useData } from "@/context/DataContext";
 import { useAuth } from "@/context/AuthContext";
+import { StaggerContainer } from "@/components/motion/StaggerContainer";
+import { StaggerItem } from "@/components/motion/StaggerItem";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { Category, Company } from "@/types";
 
 const CATEGORIES: (Category | "All")[] = [
@@ -35,7 +38,7 @@ type StudentProfileData = {
 };
 
 export function Explore() {
-  const { companies } = useData();
+  const { companies, loading } = useData();
   const { role, profile } = useAuth();
 
   const isUniversity = role === "university";
@@ -110,8 +113,14 @@ export function Explore() {
         </div>
 
         {/* Grid */}
-        {filtered.length > 0 ? (
+        {loading ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-56 w-full" />
+            ))}
+          </div>
+        ) : filtered.length > 0 ? (
+          <StaggerContainer className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4">
             {filtered.map((c) => {
               const companyName = String(c.companyName ?? c.name ?? "");
               const categories = Array.isArray(c.categories)
@@ -140,14 +149,15 @@ export function Explore() {
                 Boolean(studentYear && eligibleYears.includes(studentYear));
 
               return (
-                <CompanyCard
-                  key={c.id}
-                  company={cardCompany}
-                  matchesYear={matchesYear}
-                />
+                <StaggerItem key={c.id}>
+                  <CompanyCard
+                    company={cardCompany}
+                    matchesYear={matchesYear}
+                  />
+                </StaggerItem>
               );
             })}
-          </div>
+          </StaggerContainer>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4">

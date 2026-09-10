@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { BadgeCheck } from "lucide-react";
+import { motion } from "motion/react";
 import type { Company } from "@/types";
 
 interface CompanyCardProps {
@@ -11,24 +12,21 @@ export function CompanyCard({ company, matchesYear }: CompanyCardProps) {
   const navigate = useNavigate();
 
   return (
-    <div
+    <motion.div
+      whileHover={{ scale: 1.02, boxShadow: "0 12px 24px -8px rgba(0,0,0,0.12)" }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
       onClick={() => navigate(`/company/${company.id}`)}
-      className="group flex flex-col items-center justify-center w-full cursor-pointer transition-all duration-300 hover:scale-105"
+      className="group flex flex-col items-center justify-center w-full cursor-pointer"
     >
       {/* Top image area */}
       <div
         className="relative w-full h-40 sm:h-48 rounded-lg shadow-md bg-cover bg-center overflow-hidden transition-all duration-300 group-hover:shadow-xl"
-      style={
-  company.coverUrl
-    ? { backgroundImage: `url(${company.coverUrl})` }
-    : company.logoUrl
-      ? {
-          backgroundImage: `url(${company.logoUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+        style={
+          company.coverUrl
+            ? { backgroundImage: `url(${company.coverUrl})` }
+            : { backgroundImage: "linear-gradient(135deg, #0d9488 0%, #ccfbf1 100%)" }
         }
-      : { backgroundImage: "linear-gradient(135deg, #0d9488 0%, #ccfbf1 100%)" }
-}
       >
         {company.verified && (
           <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
@@ -74,6 +72,6 @@ export function CompanyCard({ company, matchesYear }: CompanyCardProps) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

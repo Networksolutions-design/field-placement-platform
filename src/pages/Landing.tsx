@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Logo } from "@/components/ui/Logo";
 import { mockCompanies } from "@/data/mockCompanies";
+import { motion } from "motion/react";
 import {
   Search,
   Building2,
@@ -101,7 +102,13 @@ export function Landing() {
       </section>
 
       {/* How it works */}
-      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+      <motion.section
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-6xl mx-auto px-4 py-12 md:py-16"
+      >
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">How it works</h2>
           <p className="mt-2 text-gray-500">Three steps from discovery to placement.</p>
@@ -129,7 +136,7 @@ export function Landing() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
       {/* Categories */}
       <section className="max-w-6xl mx-auto px-4 py-8">
@@ -146,7 +153,13 @@ export function Landing() {
       </section>
 
       {/* Featured companies */}
-      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+      <motion.section
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-6xl mx-auto px-4 py-12 md:py-16"
+      >
         <div className="flex items-end justify-between mb-8">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
@@ -199,7 +212,7 @@ export function Landing() {
             </Button>
           </Link>
         </div>
-      </section>
+      </motion.section>
 
       {/* CTA */}
       <section className="bg-gray-900">

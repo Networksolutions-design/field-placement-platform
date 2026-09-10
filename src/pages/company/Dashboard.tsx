@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { getProfileCompletion } from "@/utils/companyProfile";
 import { ProfileCompletionBanner } from "@/components/company/ProfileCompletionBanner";
+import { AnimatedModal } from "@/components/motion/AnimatedModal";
 
 type CompanyProfileData = {
   companyName?: string;
@@ -167,9 +168,8 @@ export function CompanyDashboard() {
     typeof profile.logoUrl === "string" && profile.logoUrl.length > 0
       ? profile.logoUrl
       : null;
-  
+  const availableSlots = Number(profile.availableSlots ?? 1);
 
-  // Profile completion
   const { percent, missing } = getProfileCompletion(
     profile as unknown as Record<string, unknown>
   );
@@ -457,43 +457,38 @@ export function CompanyDashboard() {
       </div>
 
       {/* Deactivate confirm dialog */}
-      {showDeactivate && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-[fadeIn_0.15s_ease-out]"
-          onClick={() => setShowDeactivate(false)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 text-center mb-1">
-              Deactivate profile?
-            </h3>
-            <p className="text-sm text-gray-500 text-center mb-6">
-              Your company will be hidden from students. You can contact admin to
-              reactivate.
-            </p>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowDeactivate(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800"
-                onClick={handleDeactivate}
-              >
-                Deactivate
-              </Button>
-            </div>
+      <AnimatedModal
+        isOpen={showDeactivate}
+        onClose={() => setShowDeactivate(false)}
+      >
+        <div className="p-6">
+          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-6 h-6 text-red-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 text-center mb-1">
+            Deactivate profile?
+          </h3>
+          <p className="text-sm text-gray-500 text-center mb-6">
+            Your company will be hidden from students. You can contact admin to
+            reactivate.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowDeactivate(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800"
+              onClick={handleDeactivate}
+            >
+              Deactivate
+            </Button>
           </div>
         </div>
-      )}
+      </AnimatedModal>
     </CompanyLayout>
   );
 }

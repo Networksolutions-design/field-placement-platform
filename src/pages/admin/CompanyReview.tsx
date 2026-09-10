@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatedModal } from "@/components/motion/AnimatedModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card } from "@/components/ui/Card";

@@ -6,9 +6,11 @@ import {
   Navigate,
 } from "react-router-dom";
 import type { ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
 import { AppProvider } from "@/context/AppContext";
 import { ToastContainer } from "@/components/ui/Toast";
 import { useAuth } from "@/context/AuthContext";
+import { PageWrapper } from "@/components/motion/PageWrapper";
 
 import { Landing } from "@/pages/Landing";
 import { StudentLogin } from "@/pages/student/Login";
@@ -46,7 +48,6 @@ function SessionGuard({ children }: { children: ReactNode }) {
   if (loading) return <FullScreenLoader />;
   if (!firebaseUser) return <>{children}</>;
 
-  // Admin bypasses email verification
   if (role === "admin") {
     if (path === "/" || path === "/admin/login") {
       return <Navigate to="/admin/dashboard" replace />;
@@ -54,7 +55,6 @@ function SessionGuard({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // Unverified non-admin users: only allow certain paths
   if (!emailVerified) {
     const unverifiedAllowedPaths = [
       "/",
@@ -73,7 +73,6 @@ function SessionGuard({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  // Verified non-admin user redirects
   if (role === "student") {
     if (
       path === "/" ||
@@ -115,7 +114,6 @@ function RequireRole({
 
   if (!role) return <FullScreenLoader />;
 
-  // Admin bypasses email verification
   if (role === "admin") {
     if (allowedRoles.includes("admin")) {
       return <>{children}</>;
@@ -124,7 +122,6 @@ function RequireRole({
     }
   }
 
-  // Non-admin: require email verification
   if (!emailVerified) {
     return <Navigate to="/verify-email" replace />;
   }
@@ -138,119 +135,129 @@ function RequireRole({
   return <>{children}</>;
 }
 
+function AnimatedRoutes() {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Public routes */}
+        <Route path="/" element={<PageWrapper><Landing /></PageWrapper>} />
+        <Route path="/student/login" element={<PageWrapper><StudentLogin /></PageWrapper>} />
+        <Route path="/student/signup" element={<PageWrapper><StudentSignup /></PageWrapper>} />
+        <Route path="/verify-email" element={<PageWrapper><VerifyEmailPage /></PageWrapper>} />
+        <Route path="/student/onboarding" element={<PageWrapper><StudentOnboarding /></PageWrapper>} />
+        <Route path="/company/login" element={<PageWrapper><CompanyLogin /></PageWrapper>} />
+        <Route path="/institution/register" element={<PageWrapper><InstitutionRegister /></PageWrapper>} />
+        <Route path="/terms" element={<PageWrapper><Terms /></PageWrapper>} />
+        <Route path="/privacy" element={<PageWrapper><Privacy /></PageWrapper>} />
+
+        {/* Student routes */}
+        <Route
+          path="/explore"
+          element={
+            <RequireRole allowedRoles={["student", "university"]}>
+              <PageWrapper><Explore /></PageWrapper>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/company/:id"
+          element={
+            <RequireRole allowedRoles={["student", "university", "admin"]}>
+              <PageWrapper><CompanyDetail /></PageWrapper>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <RequireRole allowedRoles={["student"]}>
+              <PageWrapper><StudentProfile /></PageWrapper>
+            </RequireRole>
+          }
+        />
+
+        {/* Company routes */}
+        <Route
+          path="/company/dashboard"
+          element={
+            <RequireRole allowedRoles={["company"]}>
+              <PageWrapper><CompanyDashboard /></PageWrapper>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/company/profile/complete"
+          element={
+            <RequireRole allowedRoles={["company"]}>
+              <PageWrapper><InstitutionRegister mode="complete" /></PageWrapper>
+            </RequireRole>
+          }
+        />
+
+        {/* University routes */}
+        <Route
+          path="/university/dashboard"
+          element={
+            <RequireRole allowedRoles={["university"]}>
+              <PageWrapper><UniversityDashboard /></PageWrapper>
+            </RequireRole>
+          }
+        />
+
+        {/* Admin routes */}
+        <Route path="/admin/login" element={<PageWrapper><AdminLogin /></PageWrapper>} />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <RequireRole allowedRoles={["admin"]}>
+              <PageWrapper><AdminDashboard /></PageWrapper>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/company/:id"
+          element={
+            <RequireRole allowedRoles={["admin"]}>
+              <PageWrapper><AdminCompanyReview /></PageWrapper>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/add-company"
+          element={
+            <RequireRole allowedRoles={["admin"]}>
+              <PageWrapper><AdminAddCompany /></PageWrapper>
+            </RequireRole>
+          }
+        />
+
+        {/* Placeholder */}
+        <Route
+          path="/university/:id"
+          element={
+            <RequireRole allowedRoles={["student", "university", "admin"]}>
+              <PageWrapper><PlaceholderPage
+                title="University profile"
+                description="Public university profile page."
+                ctaLabel="Back to home"
+                ctaTo="/"
+              /></PageWrapper>
+            </RequireRole>
+          }
+        />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 function App() {
   return (
     <AppProvider>
       <BrowserRouter>
         <SessionGuard>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/student/login" element={<StudentLogin />} />
-            <Route path="/student/signup" element={<StudentSignup />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/student/onboarding" element={<StudentOnboarding />} />
-            <Route path="/company/login" element={<CompanyLogin />} />
-            <Route path="/institution/register" element={<InstitutionRegister />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-
-            {/* Student routes */}
-            <Route
-              path="/explore"
-              element={
-                <RequireRole allowedRoles={["student", "university"]}>
-                  <Explore />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/company/:id"
-              element={
-                <RequireRole allowedRoles={["student", "university", "admin"]}>
-                  <CompanyDetail />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <RequireRole allowedRoles={["student"]}>
-                  <StudentProfile />
-                </RequireRole>
-              }
-            />
-
-            {/* Company routes */}
-            <Route
-              path="/company/dashboard"
-              element={
-                <RequireRole allowedRoles={["company"]}>
-                  <CompanyDashboard />
-                </RequireRole>
-              }
-            />
-                        <Route
-              path="/company/profile/complete"
-              element={
-                <RequireRole allowedRoles={["company"]}>
-                  <InstitutionRegister mode="complete" />
-                </RequireRole>
-              }
-            />
-
-            {/* University routes */}
-            <Route
-              path="/university/dashboard"
-              element={
-                <RequireRole allowedRoles={["university"]}>
-                  <UniversityDashboard />
-                </RequireRole>
-              }
-            />
-
-            {/* Admin routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route
-              path="/admin/dashboard"
-              element={
-                <RequireRole allowedRoles={["admin"]}>
-                  <AdminDashboard />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/company/:id"
-              element={
-                <RequireRole allowedRoles={["admin"]}>
-                  <AdminCompanyReview />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/add-company"
-              element={
-                <RequireRole allowedRoles={["admin"]}>
-                  <AdminAddCompany />
-                </RequireRole>
-              }
-            />
-
-            {/* Placeholder */}
-            <Route
-              path="/university/:id"
-              element={
-                <RequireRole allowedRoles={["student", "university", "admin"]}>
-                  <PlaceholderPage
-                    title="University profile"
-                    description="Public university profile page."
-                    ctaLabel="Back to home"
-                    ctaTo="/"
-                  />
-                </RequireRole>
-              }
-            />
-          </Routes>
+          <AnimatedRoutes />
         </SessionGuard>
         <ToastContainer />
       </BrowserRouter>
